@@ -9,7 +9,7 @@
   1.GET /todos - Retrieve all todo items
     Description: Returns a list of all todo items.
     Response: 200 OK with an array of todo items in JSON format.
-    Example: GET http://localhost:3000/todos
+    Example: GET    
     
   2.GET /todos/:id - Retrieve a specific todo item by ID
     Description: Returns a specific todo item identified by its ID.
@@ -39,11 +39,149 @@
 
   Testing the server - run `npm run test-todoServer` command in terminal
  */
-const express = require('express');
-const bodyParser = require('body-parser');
+
+const port = 5173;
+const express = require("express");
+const fs = require("fs");
+const bodyParser = require("body-parser");
+const uuid = require("uuid");
 
 const app = express();
 
 app.use(bodyParser.json());
 
+// GET Todos
+app.get("/todos", (req, res) => {
+  fs.readFile("files/todos.txt", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return;
+    }
+    res.status(200).send(JSON.stringify(JSON.parse(data).todos));
+  });
+});
+
+// GET Todo by Id
+app.get("/todos/:id", (req, res) => {
+  const id = req.params.id;
+  fs.readFile("files/todos.txt", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return;
+    } else {
+      const todoArray = JSON.parse(data);
+      console.log(todoArray);
+      const todo = todoArray.todos.filter((todo) => todo.id == id);
+      if (todo.length == 0) {
+        res.sendStatus(404);
+      } else {
+        res.status(200).send(todo[0]);
+      }
+    }
+  });
+});
+
+app.put("/todos/:id", (req, res) => {
+  const id = req.params.id;
+  const { title, description } = req.body;
+  fs.readFile("files/todos.txt", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return;
+    } else {
+      const todoArray = JSON.parse(data);
+      let newTodo = null;
+      todoArray.todos = todoArray.todos.map((todo) => {
+        if (todo.id == id) {
+          todo.title = title;
+          todo.description = description;
+          newTodo = todo;
+        }
+        return todo;
+      });
+      fs.writeFile(
+        "files/todos.txt",
+        JSON.stringify(todoArray),
+        "utf8",
+        (err) => {
+          if (err) {
+            console.error("Error writing to file:", err);
+          } else {
+            console.log("Data written to file successfully.");
+            res.status(200).send(newTodo);
+          }
+        }
+      );
+    }
+  });
+});
+
+// Add Todo
+app.post("/todos", (req, res) => {
+  const { title, description } = req.body;
+  fs.readFile("files/todos.txt", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return;
+    } else {
+      const uid = uuid.v4();
+      const todo = {
+        id: uid,
+        title,
+        description,
+      };
+      const todoArray = JSON.parse(data);
+      todoArray.todos.push(todo);
+      fs.writeFile(
+        "files/todos.txt",
+        JSON.stringify(todoArray),
+        "utf8",
+        (err) => {
+          if (err) {
+            console.error("Error writing to file:", err);
+          } else {
+            console.log("Data written to file successfully.");
+            res.status(201).send(todo);
+          }
+        }
+      );
+    }
+  });
+});
+
+// Delete Todo
+app.delete("/todos/:id", (req, res) => {
+  const id = req.params.id;
+  fs.readFile("files/todos.txt", "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading file:", err);
+      return;
+    } else {
+      const todoArray = JSON.parse(data);
+      todoArray.todos = todoArray.todos.filter((todo) => todo.id != id);
+      fs.writeFile(
+        "files/todos.txt",
+        JSON.stringify(todoArray),
+        "utf8",
+        (err) => {
+          if (err) {
+            console.error("Error writing to file:", err);
+          } else {
+            console.log("Todo deleted.");
+            res.status(200).send({ message: "Todo deleted" });
+          }
+        }
+      );
+    }
+  });
+});
+
+// 404
+app.get("*", function (req, res) {
+  res.send("Route not defined", 404);
+});
+
+app.listen(port, () => {
+  console.log(`server listening on port ${port}`);
+});
 module.exports = app;
